@@ -1,4 +1,5 @@
 from typing import ValuesView
+import math
 import numpy as np
 import scipy as sc
 from matplotlib.pyplot import plot, show, scatter
@@ -28,9 +29,11 @@ y_dat = [element *(2/38) for element in y_datp]
 
 param, cov = curve_fit(engineCurve, x_dat, y_dat)
 
+print(param)
 x = np.arange(0.02,0.32,0.001)
 y = engineCurve(x, *param)
-y_integral = dEngineCurvedx(x, *param)
+print(max(y))
+'''y_integral = dEngineCurvedx(x, *param)
 
 #scatter(x_dat,y_dat)
 #plot(x,y)
@@ -126,4 +129,4 @@ print("Velocity at ground strike: " + str(vz[-1]))
 plot(t_list,z)
 #plot(t_list,az)
 show()
-    
+'''
