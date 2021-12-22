@@ -5,36 +5,45 @@ import math
 from gym.spaces.dict import Dict
 import numpy as np
 from gym.core import Env
-from PL_LunarLander import LunarLander
-import PL_LunarLander
 import matplotlib.pyplot as plt
 from gym import spaces
 
 # simulation parameters
 dt = 0.005
 mass = 0.52
-starting_height = 1.71
+starting_height = 2.5
 deviation = 0.05
-render = False
+initial_velocity = -13
+render = True
 
 """ Thrust Curve Code (SRM)"""
 def engineCurve(x,a,b,c,d,e,f,g,h,i,j,k,l,m,n):
     return a + b*x + c*x**2 + d*x**3 + e*x**4 + f*x**5 + g*x**6 +  h*x**7 + i*x**8 +  j*x**9 + k*x**10 +  l*x**11 + m*x**12 +  n*x**13
 
-def update_plot(datx, daty, velx, vely, act):
-        plt.figure(figsize=(8,8))
-        plt.plot(datx, daty, color='b')
-        plt.xlabel("t")
-        plt.ylabel("vx")
-        plt.show()
-        plt.xlabel("t")
-        plt.ylabel("vy")
-        plt.plot(velx, vely, color='r')
-        plt.show()
-        plt.xlabel("t")
-        plt.ylabel("actuator")
-        plt.plot(datx, act, color='r')
-        plt.show()
+def update_plot(datx, daty, velx, vely, t, control, reward):
+    fig, axs = plt.subplots(2, 2)
+    fig.suptitle("Reward: " + str(reward))
+    # t-y
+    axs[0, 0].plot(t, daty)
+    axs[0, 0].set_title('Position y vs time')
+    #axs[0, 0].xlabel("x [m]")
+    #axs[0, 0].xlabel("y [m]")  
+    # t-vx
+    axs[0, 1].plot(t, velx, 'tab:orange')
+    axs[0, 1].set_title('Velocity in x-direction')
+    #axs[0, 1].xlabel("t [s]")
+    #axs[0, 1].xlabel("Velocity x [m/s]")  
+    # t-vy
+    axs[1, 0].plot(t, vely, 'tab:orange')
+    axs[1, 0].set_title('Velocity in y-direction')
+    #axs[1, 0].xlabel("t [s]")
+    #axs[1, 0].xlabel("Velocity x [m/s]") 
+    # t - actuator input
+    axs[1, 1].plot(t, control, 'tab:red')
+    axs[1, 1].set_title('Actuator Deflection vs time')
+    #axs[1, 0].xlabel("t [s]")
+    #axs[1, 0].xlabel("Actuator angle [rad]") 
+    plt.show()
 
 param = [8.55737293*10**-5,  2.16185198*10**0,  1.03338808*10**3, -3.27246718*10**4,
     5.61765793*10**5, -4.58971034*10**6,  1.31742637*10**7,  4.09887150*10**7,
@@ -74,7 +83,7 @@ class SRM_PL_RL(gym.Env):
 
     # initiate dynamics
     self.acc = [0,0,0]
-    self.vel = [0,0,-10]
+    self.vel = [0,0,initial_velocity]
     self.pos = [0,0,starting_height+np.random.uniform(-deviation, deviation)]
 
     self.pos_x = [self.pos[0]]
@@ -115,6 +124,7 @@ class SRM_PL_RL(gym.Env):
         self.powers = True
     else:
         self.thrust = 0
+        self.Tburn += dt
 
     #update dynamics
     self.acc = [ self.thrust * math.sin(self.actuator) / mass, 
@@ -136,9 +146,9 @@ class SRM_PL_RL(gym.Env):
     self.velx.append(self.vel[0])
     self.vely.append(self.vel[2])
 
-    if self.pos[2] <= 0 and np.linalg.norm(self.vel) > 1.5:
+    if self.pos[2] <= 0 and self.Tburn > 0.32 and np.linalg.norm(self.vel) > 0.5:
         self.hit_ground = True
-    if self.pos[2] <= 0 and np.linalg.norm(self.vel) <= 1.5:
+    if self.pos[2] <= 0 and self.Tburn > 0.32 and np.linalg.norm(self.vel) <= 0.5:
         self.soft_landing = True
 
     state = [self.pos[0],
@@ -151,27 +161,28 @@ class SRM_PL_RL(gym.Env):
     assert len(state) == 6
 
     reward = 0
-    shaping = (
+    shaping = (-100*abs(state[0])
+
         #-20 * np.sqrt(state[0] * state[0] + state[1] * state[1])
-        #- 100 * np.sqrt(state[2] * state[2] + state[3] * state[3])
-        )#    - 100 * abs(state[4])
-    #)
+        #- 20 * np.sqrt(state[2] * state[2] + state[3] * state[3])
+        #)    - 100 * abs(state[4])
+    )
     if self.prev_shaping is not None:
         reward = shaping - self.prev_shaping
     self.prev_shaping = shaping
-    
+
     self.done = False
     # criteria for rough landing, total speed more than 1 m/s, height = 0 m
     if self.hit_ground:
         self.done = True
-        reward = -300 * abs(np.linalg.norm(self.vel)/1.5)
+        reward = -100 * abs(np.linalg.norm(self.vel)/3)
         if render:
-            update_plot(self.tl, self.pos_y, self.tl, self.vely, self.act)
+            update_plot(self.pos_x, self.pos_y, self.velx, self.vely, self.tl, self.act, reward)
     if self.soft_landing:
         self.done = True
-        reward = +100 * (abs(1/np.linalg.norm(self.vel)))
+        reward = +100 * (abs(3/np.linalg.norm(self.vel)))
         if render:
-            update_plot(self.tl, self.pos_y, self.tl, self.vely, self.act)
+            update_plot(self.pos_x, self.pos_y, self.velx, self.vely, self.tl, self.act, reward)
 
     return np.array(state, dtype=np.float32), reward, self.done, {}
   
@@ -193,7 +204,7 @@ class SRM_PL_RL(gym.Env):
 
     # initiate dynamics
     self.acc = [0,0,0]
-    self.vel = [0,0,-10]
+    self.vel = [0,0,initial_velocity]
     self.pos = [0,0,starting_height+np.random.uniform(-deviation, deviation)]
 
     self.pos_x = [self.pos[0]]

@@ -1,5 +1,4 @@
 import os
-import gym
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.evaluation import evaluate_policy
@@ -8,18 +7,18 @@ from RL_PL import SRM_PL_RL
 
 #make directories
 log_path = os.path.join("Training", "Logs")
-PPO_load = os.path.join("Training", "Saved Models", "RL_PL1")
-PPO_save = os.path.join("Training", "Saved Models", "RL_PL2")
+PPO_load = os.path.join("Training", "Saved Models", "RL_PL_3ms_Updated1")
+PPO_save = os.path.join("Training", "Saved Models", "RL_PL_3ms_Updated1")
 
 env = DummyVecEnv([lambda: SRM_PL_RL()])
 #model = PPO("MlpPolicy", env, verbose=1, tensorboard_log=log_path)
 
 model = PPO.load(PPO_load, env=env)
-model.learn(total_timesteps=200000)
-model.save(PPO_save)
+#model.learn(total_timesteps=10000)
+#model.save(PPO_save)
 
 # TEST Model
-episodes = 40
+episodes = 2
 for episode in range(1, episodes+1):
     obs = env.reset()
     done = False

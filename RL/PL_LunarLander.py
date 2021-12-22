@@ -16,21 +16,21 @@ To play yourself, run:
 python examples/agents/keyboard_agent.py LunarLander-v2
 Created by Oleg Klimov. Licensed on the same terms as the rest of OpenAI Gym.
 """
-
+'''
 
 import math
 import sys
 import numpy as np
 
-import Box2D
-from Box2D.b2 import (
-    edgeShape,
-    circleShape,
-    fixtureDef,
-    polygonShape,
-    revoluteJointDef,
-    contactListener,
-)
+#import Box2D
+#from Box2D.b2 import (
+#    edgeShape,
+#    circleShape,
+#    fixtureDef,
+#    polygonShape,
+#    revoluteJointDef,
+#    contactListener,
+#)
 
 import gym
 from gym import spaces
@@ -521,4 +521,4 @@ def demo_heuristic_lander(env, seed=None, render=False):
 
 
 if __name__ == "__main__":
-    demo_heuristic_lander(LunarLander(), render=True)
+    demo_heuristic_lander(LunarLander(), render=True)'''
