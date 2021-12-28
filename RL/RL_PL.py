@@ -7,62 +7,32 @@ import numpy as np
 from gym.core import Env
 import matplotlib.pyplot as plt
 from gym import spaces
+from support_code import SRM, Render
 
 # simulation parameters
-dt = 0.005
-mass = 0.52
-starting_height = 2.5
-deviation = 0.05
-initial_velocity = -13
+dt = 0.01 # [s]
+vehicle_mass = 0.52 # [kg]
+starting_height = 2.5 # [m]
+deviation = 0.05 # [m]
+initial_velocity = -13 #[m/s]
 render = True
-
-""" Thrust Curve Code (SRM)"""
-def engineCurve(x,a,b,c,d,e,f,g,h,i,j,k,l,m,n):
-    return a + b*x + c*x**2 + d*x**3 + e*x**4 + f*x**5 + g*x**6 +  h*x**7 + i*x**8 +  j*x**9 + k*x**10 +  l*x**11 + m*x**12 +  n*x**13
-
-def update_plot(datx, daty, velx, vely, t, control, reward):
-    fig, axs = plt.subplots(2, 2)
-    fig.suptitle("Reward: " + str(reward))
-    # t-y
-    axs[0, 0].plot(t, daty)
-    axs[0, 0].set_title('Position y vs time')
-    #axs[0, 0].xlabel("x [m]")
-    #axs[0, 0].xlabel("y [m]")  
-    # t-vx
-    axs[0, 1].plot(t, velx, 'tab:orange')
-    axs[0, 1].set_title('Velocity in x-direction')
-    #axs[0, 1].xlabel("t [s]")
-    #axs[0, 1].xlabel("Velocity x [m/s]")  
-    # t-vy
-    axs[1, 0].plot(t, vely, 'tab:orange')
-    axs[1, 0].set_title('Velocity in y-direction')
-    #axs[1, 0].xlabel("t [s]")
-    #axs[1, 0].xlabel("Velocity x [m/s]") 
-    # t - actuator input
-    axs[1, 1].plot(t, control, 'tab:red')
-    axs[1, 1].set_title('Actuator Deflection vs time')
-    #axs[1, 0].xlabel("t [s]")
-    #axs[1, 0].xlabel("Actuator angle [rad]") 
-    plt.show()
-
-param = [8.55737293*10**-5,  2.16185198*10**0,  1.03338808*10**3, -3.27246718*10**4,
-    5.61765793*10**5, -4.58971034*10**6,  1.31742637*10**7,  4.09887150*10**7,
-    -3.07523806*10**8,  1.29853726*10**8,  1.93955863*10**9, -3.51515455*10**8,
-    -1.38401836*10**10,  1.86375875*10**10]
-
-params = []
-for i in param:
-    params.append(i*8)
+engine_type = "F-15-0"
+COM_dist = 0.1 # [m]
+Ixx = 5*10**-3 # kg/m^2
+ 
 
 class SRM_PL_RL(gym.Env):
   """Custom Environment that follows gym interface"""
   metadata = {'render.modes': ['human']}
 
-  def __init__(self):
+  def __init__(self, render):
     super(SRM_PL_RL, self).__init__()
     # Define action and observation space
     # They must be gym.spaces objects
     
+    self.engine = SRM(engine_type, 0, dt)
+    self.total_mass = vehicle_mass + self.engine.total_mass
+
     #define engine stuff
     self.prev_shaping = None
     self.engine_on = False
@@ -81,7 +51,7 @@ class SRM_PL_RL(gym.Env):
     self.hit_ground = False
     self.soft_landing = False
 
-    # initiate dynamics
+    # initiate translational dynamics
     self.acc = [0,0,0]
     self.vel = [0,0,initial_velocity]
     self.pos = [0,0,starting_height+np.random.uniform(-deviation, deviation)]
@@ -92,8 +62,16 @@ class SRM_PL_RL(gym.Env):
     self.velx = [self.vel[0]]
     self.vely = [self.vel[2]]
 
+    # initiate rotational dynamics
+    self.ang_acc = 0
+    self.ang_vel = 0
+    self.ang_pos = 0
+
     self.tl = [0]
     self.act = [0]
+
+    self.ang_track = [0]
+    self.ang_vel_track = [0]
 
     self.t = 0
 
@@ -101,15 +79,29 @@ class SRM_PL_RL(gym.Env):
         self.pos[2],
         self.vel[0],
         self.vel[2],
-        0,
-        0
+        self.ang_pos,
+        self.ang_vel
     ]
 
   def step(self, action):
     #action = np.clip(action, -1, +1).astype(np.float32)
+    
     # Execute one time step within the environment
+    # Update engine time as well
     self.t += dt
+    self.engine.t = self.t
+    self.total_mass = self.engine.total_mass + vehicle_mass
     self.tl.append(self.t)
+
+    # Update engine thrust, mass etc.
+    if self.Tburn < self.engine.t_burn:
+        self.thrust = self.engine.thrust_force
+        self.Tburn += dt
+        self.powers = True
+    else:
+        self.thrust = 0
+        self.Tburn += dt
+
     if abs(action - self.actuator) < 5/17*3.15/180:
         self.actuator = action
     else:
@@ -117,19 +109,15 @@ class SRM_PL_RL(gym.Env):
 
     self.act.append(self.actuator)
 
-    #if (self.engine_on or self.powers )and self.Tburn < 0.32:
-    if self.Tburn < 0.32:
-        self.thrust = engineCurve(self.Tburn, *params)
-        self.Tburn += dt
-        self.powers = True
-    else:
-        self.thrust = 0
-        self.Tburn += dt
+    # update rotational dynamics
+    self.ang_acc = self.thrust * math.sin(self.actuator+self.ang_pos) * COM_dist / Ixx
+    self.ang_vel = self.ang_vel + self.ang_acc * dt
+    self.ang_pos = self.ang_pos + self.ang_vel * dt
 
-    #update dynamics
-    self.acc = [ self.thrust * math.sin(self.actuator) / mass, 
+    # update translational dynamics
+    self.acc = [ self.thrust * math.sin(self.actuator+self.ang_pos) / self.total_mass, 
                     0, 
-                    self.thrust * math.cos(self.actuator) / mass - 9.81]
+                    self.thrust * math.cos(self.actuator+self.ang_pos) / self.total_mass - 9.81]
     m = 0
     for i in self.vel:
         self.vel[m] = i + self.acc[m] * dt
@@ -146,23 +134,26 @@ class SRM_PL_RL(gym.Env):
     self.velx.append(self.vel[0])
     self.vely.append(self.vel[2])
 
-    if self.pos[2] <= 0 and self.Tburn > 0.32 and np.linalg.norm(self.vel) > 0.5:
+    self.ang_track.append(self.ang_pos)
+    self.ang_vel_track.append(self.ang_vel)
+
+    if self.pos[2] <= 0 and self.Tburn > self.engine.t_burn and np.linalg.norm(self.vel) > 0.5:
         self.hit_ground = True
-    if self.pos[2] <= 0 and self.Tburn > 0.32 and np.linalg.norm(self.vel) <= 0.5:
+    if self.pos[2] <= 0 and self.Tburn > self.engine.t_burn and np.linalg.norm(self.vel) <= 0.5:
         self.soft_landing = True
 
     state = [self.pos[0],
         self.pos[2],
         self.vel[0],
         self.vel[2],
-        0,
-        0
+        self.ang_pos,
+        self.ang_vel
     ]
     assert len(state) == 6
 
     reward = 0
-    shaping = (-100*abs(state[0])
-
+    shaping = (-100*abs(state[0]) - 100*abs(state[4])
+            -20*abs(state[5])
         #-20 * np.sqrt(state[0] * state[0] + state[1] * state[1])
         #- 20 * np.sqrt(state[2] * state[2] + state[3] * state[3])
         #)    - 100 * abs(state[4])
@@ -177,27 +168,29 @@ class SRM_PL_RL(gym.Env):
         self.done = True
         reward = -100 * abs(np.linalg.norm(self.vel)/3)
         if render:
-            update_plot(self.pos_x, self.pos_y, self.velx, self.vely, self.tl, self.act, reward)
+            Render(self.tl, [self.pos_x, self.pos_y, self.velx, self.vely, self.ang_track, self.ang_vel], self.act, reward)
     if self.soft_landing:
         self.done = True
         reward = +100 * (abs(3/np.linalg.norm(self.vel)))
         if render:
-            update_plot(self.pos_x, self.pos_y, self.velx, self.vely, self.tl, self.act, reward)
+            Render(self.tl, [self.pos_x, self.pos_y, self.velx, self.vely, self.ang_track, self.ang_vel], self.act, reward)
 
     return np.array(state, dtype=np.float32), reward, self.done, {}
   
   def reset(self):
-    # Reset the state of the environment to an initial state
-    self.t = 0
-    self.prev_shaping = None
-    self.tl = [0]
-    self.act = [0]
-    self.actuator = 0
+    # Reset the state of the environment to the initial state
 
+    self.engine = SRM(engine_type, 0, dt)
+    self.total_mass = vehicle_mass + self.engine.total_mass
+
+    #define engine stuff
+    self.prev_shaping = None
     self.engine_on = False
     self.thrust = 0
     self.Tburn = 0
     self.powers = False
+    self.done = False
+    self.actuator = 0
 
     self.hit_ground = False
     self.soft_landing = False
@@ -207,11 +200,27 @@ class SRM_PL_RL(gym.Env):
     self.vel = [0,0,initial_velocity]
     self.pos = [0,0,starting_height+np.random.uniform(-deviation, deviation)]
 
+    # initiate rotational dynamics
+    self.ang_acc = 0
+    self.ang_vel = 0
+    self.ang_pos = 0
+
     self.pos_x = [self.pos[0]]
     self.pos_y = [self.pos[2]]
 
     self.velx = [self.vel[0]]
     self.vely = [self.vel[2]]
+
+     # initiate rotational dynamics
+    self.ang_acc = 0
+    self.ang_vel = 0
+    self.ang_pos = 0
+
+    self.ang_track = [0]
+    self.ang_vel_track = [0]
+
+    self.tl = [0]
+    self.act = [0]
 
     self.t = 0
 
@@ -219,8 +228,8 @@ class SRM_PL_RL(gym.Env):
         self.pos[2],
         self.vel[0],
         self.vel[2],
-        0,
-        0
+        self.ang_pos,
+        self.ang_vel
     ]
     return self.state
   

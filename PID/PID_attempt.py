@@ -9,8 +9,8 @@ from scipy.integrate import trapezoid
 from scipy.sparse.extract import find
 
 """ Thrust Curve Code (SRM)"""
-def engineCurve(x,a,b,c,d,e,f,g,h,i,j,k,l,m,n):
-    return a + b*x + c*x**2 + d*x**3 + e*x**4 + f*x**5 + g*x**6 +  h*x**7 + i*x**8 +  j*x**9 + k*x**10 +  l*x**11 + m*x**12 +  n*x**13
+def engineCurve(x,a,b,c,d,e,f,g,h,i,j,k,l,m):#,n):#,o,p,q,r,s,t,u,v,w,jj,y,z):
+    return a + b*x + c*x**2 + d*x**3 + e*x**4 + f*x**5 + g*x**6 +  h*x**7 + i*x**8 +  j*x**9 + k*x**10 +  l*x**11 + m*x**12 #+  n*x**13 #+ o*x**14 + p*x**15 + q*x**16 + r*x**17 + s*x**18 + t*x**19 + u*x**20 + v*x**21 + w*x**22 + jj*x**23 + y*x**24 + z*x**25
 
 def Thrust(x,a,b,c,d,e,f,g,h,i,j,k,l,m,n):
     if x > 0.02 and x < 0.32:  
@@ -22,23 +22,36 @@ def dEngineCurvedx(x,a,b,c,d,e,f,g,h,i,j,k,l,m,n):
     #return a*x + 1/2*b*x**2 + 1/3*c*x**3 + 1/4*d*x**4 + 1/5*e*x**5 + 1/6*f*x**6 +  1/7*g*x**7 + 1/8*h*x**8 +  1/9*i*x**9 + 1/10*j*x**10 +  1/11*k*x**11 + 1/12*l*x**12 +  1/13*m*x**13 +  1/14*n*x**14
     return 1/2*a*x**2 + 1/3*1/2*b*x**3 + 1/4*1/3*c*x**4 + 1/4*1/5*d*x**5 + 1/6*1/5*e*x**6 +  1/6*1/7*f*x**7 + 1/8*1/7*g*x**8 +  1/8*1/9*h*x**9 + 1/9*1/10*i*x**10 +  1/10*1/11*j*x**11 + 1/11*1/12*k*x**12 +  1/12*1/13*l*x**13 +  1/13*1/14*m*x**14 + 1/14*1/15*n*x**15
 
-x_datp = [0,54,27,81,108,138,162,183,206,226,240,258,270,284,293,304,315,326,336,347,356]
-x_dat = [element *(0.05/54) for element in x_datp]
-y_datp = [0,17,7,32,49,71,90,109,126,139,142,126,108,85,71,53,37,22,12,5,0]
-y_dat = [element *(2/38) for element in y_datp]
+# For 1/2A6 engine
+#x_datp = [0,54,27,81,108,138,162,183,206,226,240,258,270,284,293,304,315,326,336,347,356]
+#x_dat = [element *(0.05/54) for element in x_datp]
+#y_datp = [0,17,7,32,49,71,90,109,126,139,142,126,108,85,71,53,37,22,12,5,0]
+#y_dat = [element *(2/38) for element in y_datp]
 
-param, cov = curve_fit(engineCurve, x_dat, y_dat)
+# For F-15-0 motor
+x_datp = [0, 0.148 ,0.228, 0.294, 0.353, 0.382, 0.419, 0.477, 0.520, 0.593, 0.688, 0.855, 1.037,
+          1.205,1.423,1.503,1.736,1.955,2.210,2.494,2.763,3.120,3.382 ,3.404 ,3.418 ,3.450]
+y_datp = [0, 7.638, 12.253, 16.391, 20.210, 22.756, 25.260, 23.074, 20.845, 19.093, 17.5, 
+            16.255, 15.427, 14.448, 14.627, 14.758, 14.623, 14.303, 14.141, 13.819,
+            13.338, 13.334, 13.013, 9.352, 4.895, 0.000]
 
-print(param)
-x = np.arange(0.02,0.32,0.001)
-y = engineCurve(x, *param)
-print(max(y))
-'''y_integral = dEngineCurvedx(x, *param)
+x_1 = x_datp[:int(len(x_datp)/2)]
+x_2 = x_datp[int(len(x_datp)/2):]
+y_1 = y_datp[:int(len(x_datp)/2)]
+y_2 = y_datp[int(len(x_datp)/2):]
 
-#scatter(x_dat,y_dat)
-#plot(x,y)
-#show()
+param, cov = curve_fit(engineCurve, x_1, y_1)
+param2, cov2 = curve_fit(engineCurve, x_2, y_2)
 
+x = np.arange(0,1.0,0.1)
+y = engineCurve(x1, *param2)
+#y_integral = dEngineCurvedx(x, *param)
+
+scatter(x_datp,y_datp)
+plot(x1,y2)
+plot(x2,y1)
+show()
+'''
 dx = 0.004
 I_est = 8*trapezoid(y,x,dx)
 
