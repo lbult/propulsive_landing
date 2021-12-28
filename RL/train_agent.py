@@ -10,12 +10,12 @@ log_path = os.path.join("Training", "Logs")
 PPO_load = os.path.join("Training", "Saved Models", "RL_PL_3ms_Updated1")
 PPO_save = os.path.join("Training", "Saved Models", "RL_PL_3ms_Updated1")
 
-env = DummyVecEnv([lambda: SRM_PL_RL(render=False)])
+env = DummyVecEnv([lambda: SRM_PL_RL(render=True)])
 #model = PPO("MlpPolicy", env, verbose=1, tensorboard_log=log_path)
 
 model = PPO.load(PPO_load, env=env)
-#model.learn(total_timesteps=10000)
-#model.save(PPO_save)
+model.learn(total_timesteps=10000)
+model.save(PPO_save)
 
 # TEST Model
 episodes = 2

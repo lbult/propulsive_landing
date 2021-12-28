@@ -41,6 +41,7 @@ class SRM_PL_RL(gym.Env):
     self.powers = False
     self.done = False
     self.actuator = 0
+    self.renderr = Render
 
     self.action_space = spaces.Box(low=-5*3.14/180,high=5*3.14/180,shape=(1,),dtype=np.float32)
     # observation space
@@ -167,12 +168,12 @@ class SRM_PL_RL(gym.Env):
     if self.hit_ground:
         self.done = True
         reward = -100 * abs(np.linalg.norm(self.vel)/3)
-        if render:
+        if self.renderr:
             Render(self.tl, [self.pos_x, self.pos_y, self.velx, self.vely, self.ang_track, self.ang_vel], self.act, reward)
     if self.soft_landing:
         self.done = True
         reward = +100 * (abs(3/np.linalg.norm(self.vel)))
-        if render:
+        if self.renderr:
             Render(self.tl, [self.pos_x, self.pos_y, self.velx, self.vely, self.ang_track, self.ang_vel], self.act, reward)
 
     return np.array(state, dtype=np.float32), reward, self.done, {}
