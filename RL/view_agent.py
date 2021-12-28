@@ -1,15 +1,14 @@
 import os
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv
-from stable_baselines3.common.evaluation import evaluate_policy
-from stable_baselines3.common.callbacks import StopTrainingOnRewardThreshold, EvalCallback
 from RL_PL import SRM_PL_RL
 
 #make directories
-PPO_load = os.path.join("Training", "Saved Models", "RL_PL_3ms_Updated1")
+PPO_load = os.path.join("Training", "Saved_Models", "RL_PL_3ms_Updated1")
 
 env = DummyVecEnv([lambda: SRM_PL_RL(render=True)])
-model = PPO.load(PPO_load, env=env)
+#model = PPO.load(PPO_load, env=env)
+model = PPO.load("./Training/Saved_Models/RL_PL_3ms_Updated1", env=env)
 
 # Evaluate Model
 episodes = 2
