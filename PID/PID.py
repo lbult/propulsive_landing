@@ -2,7 +2,7 @@ from typing import ValuesView
 import math
 import numpy as np
 import scipy as sc
-from matplotlib.pyplot import plot, show, scatter
+import matplotlib.pyplot as plt
 from math import log, pi, cos
 from scipy.optimize import curve_fit
 from scipy.integrate import trapezoid
@@ -12,9 +12,9 @@ from scipy.sparse.extract import find
 def engineCurve(x,a,b,c,d,e,f,g,h,i,j,k,l,m):#,n):#,o,p,q,r,s,t,u,v,w,jj,y,z):
     return a + b*x + c*x**2 + d*x**3 + e*x**4 + f*x**5 + g*x**6 +  h*x**7 + i*x**8 +  j*x**9 + k*x**10 +  l*x**11 + m*x**12 #+  n*x**13 #+ o*x**14 + p*x**15 + q*x**16 + r*x**17 + s*x**18 + t*x**19 + u*x**20 + v*x**21 + w*x**22 + jj*x**23 + y*x**24 + z*x**25
 
-def Thrust(x,a,b,c,d,e,f,g,h,i,j,k,l,m,n):
+def Thrust(x,a,b,c,d,e,f,g,h,i,j,k,l,m):
     if x > 0.02 and x < 0.32:  
-        return a + b*x + c*x**2 + d*x**3 + e*x**4 + f*x**5 + g*x**6 +  h*x**7 + i*x**8 +  j*x**9 + k*x**10 +  l*x**11 + m*x**12 +  n*x**13
+        return a + b*x + c*x**2 + d*x**3 + e*x**4 + f*x**5 + g*x**6 +  h*x**7 + i*x**8 +  j*x**9 + k*x**10 +  l*x**11 + m*x**12
     else:
         return 0
 
@@ -43,26 +43,27 @@ y_2 = y_datp[int(len(x_datp)/2):]
 param, cov = curve_fit(engineCurve, x_1, y_1)
 param2, cov2 = curve_fit(engineCurve, x_2, y_2)
 
-x = np.arange(0,1.0,0.1)
-y = engineCurve(x1, *param2)
+#x = np.arange()
+#y = engineCurve(x, *param)
 #y_integral = dEngineCurvedx(x, *param)
 
-scatter(x_datp,y_datp)
-plot(x1,y2)
-plot(x2,y1)
-show()
 '''
+plt.plot(x_datp,y_datp)
+plt.xlabel("Time [s]")
+plt.ylabel("Thrust [N]")
+plt.show()'''
+
 dx = 0.004
-I_est = 8*trapezoid(y,x,dx)
+I_est = 8*trapezoid(y_datp,x_datp,dx)
 
 """Control Code"""
 
 dt = 0.0005
-te_nom = max(y_dat)
+te_nom = 1.09*max(y_datp)
 az = [0]
-vz = [-10]
+vz = [-13.0]
 z = [10]
-m = 0.52
+m = 1.735
 sburn = 0.30
 g = 9.81
 h_est = 0.1
@@ -71,7 +72,7 @@ def Controller(I_est, I_req, t_burn, total_t):
     K_d = 0.030
     K_t = 0.03
     #if I_est-I_req > 0:
-    theta = K_d * abs(I_est-I_req) - K_t*((total_t-t_burn)*1)**2
+    theta = K_d * abs(I_est-I_req) - K_t*((total_t-t_burn))**2
     #$else:
         #theta = 0
     if theta < 15*pi/180:
@@ -107,16 +108,19 @@ while running:
             if tspecial > 0.33:
                 h_est = 0.1
                 findT = False
-            if v_end < 0.5 and v_end > -0.7:
+            if v_end < 1.0 and v_end > -1.0:
                 h_est = -vz[-1]*(tspecial) + 1/2 * 9.81 * (tspecial)**2 - 8*dEngineCurvedx((tspecial),*param)/m + 8*dEngineCurvedx(0.02,*param)/m + 0.025
                 findT = False
             tspecial += 0.01
+            h_est = 2.53
+            findT = False
+            calcNew = False
     if z[-1] < h_est and z[-1]  > 0: #z[-1] < h_est:
         delta_vz = vz[-1]-vz[-2]
         xs = np.arange(0,T_burn,dx)
         ys = engineCurve(xs, *param)
         I_est = right_bound - 8*trapezoid(ys2,xs2,dx)/m
-        F = 8*Thrust(T_burn, *param)
+        F = 8*1.09*Thrust(T_burn, *param)
         commanded_angle = Controller(I_est, m*abs(vz[-1]), T_burn, 0.3)
         az.append(F/m * cos(commanded_angle)-9.81)
         T_burn += dt
@@ -136,10 +140,20 @@ while running:
         #running = False
 
 print("Start of burn: " + str(h_est) + " [m]")
-print("Required momentum: " + str(m*vz[0]) + " [N s]")
+#print("Required momentum: " + str(m*vz[0]) + " [N s]")
 print("Velocity at ground strike: " + str(vz[-1]))
-#plot(t_list,vz)
-plot(t_list,z)
-#plot(t_list,az)
-show()
-'''
+
+for i, j in enumerate(az):
+    az[i] = j/9.81
+
+#plt.plot(t_list,vz)
+
+plt.plot(t_list,z)
+plt.xlabel("Time [s]")
+plt.ylabel("Altitude [m]")
+plt.show()
+
+plt.plot(t_list,az)
+plt.xlabel("Time [s]")
+plt.ylabel("Acceleration [g]")
+plt.show()

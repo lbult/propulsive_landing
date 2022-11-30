@@ -8,7 +8,7 @@ PPO_load = os.path.join("Training", "Saved_Models", "RL_PL_3ms_Updated1")
 
 env = DummyVecEnv([lambda: SRM_PL_RL(render=True)])
 #model = PPO.load(PPO_load, env=env)
-model = PPO.load("./Training/Saved_Models/RL_PL_3ms_Updated", env=env)
+model = PPO.load("./", env=env)
 
 # Evaluate Model
 episodes = 2
